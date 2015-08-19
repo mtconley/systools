@@ -1,6 +1,6 @@
 
 
-def in_ipython(self):
+def in_ipython():
     """Identify environment as IPython or not
 
     Retuns `bool`
