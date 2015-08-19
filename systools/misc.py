@@ -5,7 +5,11 @@ def in_ipython():
 
     Retuns `bool`
     """
-    return '__IPYTHON__' in vars(__builtins__)
+    try:
+        __IPYTHON__
+        return True
+    except:
+        return False
 
 def isbooliter(pattern):
     """Identify if patter is list of bools
@@ -16,4 +20,4 @@ def isbooliter(pattern):
 def isboolswitch(pattern):
     """Identify if list is [True, False]
     """
-    return isbooliter(patter) and len(pattern)==2 and sum(pattern) == 1
+    return isbooliter(pattern) and len(pattern)==2 and sum(pattern) == 1
