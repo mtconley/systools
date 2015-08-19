@@ -5,7 +5,7 @@ def in_ipython(self):
 
     Retuns `bool`
     """
-        return '__IPYTHON__' in vars(__builtins__)
+    return '__IPYTHON__' in vars(__builtins__)
 
 def isbooliter(pattern):
     """Identify if patter is list of bools
