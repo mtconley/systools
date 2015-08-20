@@ -31,7 +31,7 @@ class Stream(logging.StreamHandler):
 
 
     def write(self, message):
-        log_event = {'msg': message, 'levelno': self.level,
+        log_event = {'msg': message+'\n', 'levelno': self.level,
                     'levelname': self.levelname, 'name': self._name}
         record = self.makeRecord(**log_event)
         self.emit(record)

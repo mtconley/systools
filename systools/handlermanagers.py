@@ -1,28 +1,25 @@
 from .misc import in_ipython
 import logging
+from .standardstreams import (StreamToTerminal, 
+                             StreamToNotebook, 
+                             StreamToFile,
+                             StreamToPager)
 
-class HandlerManager(object):
+class StreamManager(object):
     
     def __init__(self):
-        pass
-        self.output = StreamLogger(stream, level)
-        
-    def set_log(self, filename):
-        
-        handler = logging.FileHandler(filename)
-        format_string='%(asctime)s:%(levelname)s:%(name)s:%(message)s'
-        formatter = logging.Formatter(format_string)
-        handler.setFormatter(formatter)
-        return handler
-        
-    def set_notebook(self):
-        return sys.stdout
-    
-    def set_console(self):
-        pass
-        
-    def _in_ipython(self):
-        return in_ipython()
+        self.t_out = t_out = StreamToTerminal(1)
+        self.t_err = t_err = StreamToTerminal(2)
+        self.n_out = n_out = StreamToNotebook(1)
+        self.n_err = n_err = StreamToNotebook(2)
+        self.f_out = f_out = StreamToFile(1)
+        self.f_err = f_err = StreamToFile(2)
+
+        self.stdout = LoggerManager('STDOUT')
+        self.stderr = LoggerManager('STDERR')
+
+        self.stdout.add_handlers(t_out, n_out, f_out)
+        self.stderr.add_handlers(t_err, n_err, f_err)
 
 
 class LoggerManager(object):
