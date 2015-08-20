@@ -27,20 +27,35 @@ class HandlerManager(object):
 
 class LoggerManager(object):
     __registered = {}
+    idx = {'log': 0, 'console': 1, 'notebook': 2, 'pager': 3}
     def __init__(self, name, level=logging.INFO):
         self.name = name
-        self.handlers = [file_logger, console_logger, notebook_logger]
-        self.dummy = DummyLogger()
-        
+        self.dummy = logging.NullHandler()
+        self.create_logger(name)
+        self.set_level(level)
+
     def create_logger(self, name):
         self.logger = logging.getLogger(name)
-        self.logger.handlers = self.handlers
-        
+
     def set_level(self, level):
-        self.logger.setLevel(level) 
+        self.logger.level = level
+        self.level = level
+
+    def add_handler(self, handler):
+        self.logger.addHandler(handler)
     
+    def add_handlers(self, *handlers):
+        for hdlr in handlers:
+            self.add_handler(hdlr)
+
+    def write(self, message):
+        self.logger.log(self.level, message)
+
+    def flush(self):
+        pass
+
     def on(location):
-        idx = {'log': 0, 'console': 1, 'notebook': 2}[location]
+        idx = self.idx[location]
         logging._acquireLock()
         try:
             self.logger.handlers.pop(idx)
@@ -49,7 +64,7 @@ class LoggerManager(object):
             logging._releaseLock()
         
     def off(location):
-        idx = {'log': 0, 'console': 1, 'notebook': 2}[location]
+        idx = self.idx[location]
         logging._acquireLock()
         try:
             self.logger.handlers.pop(idx)

@@ -1,4 +1,4 @@
-
+import os
 
 def in_ipython():
     """Identify environment as IPython or not
@@ -10,6 +10,12 @@ def in_ipython():
         return True
     except:
         return False
+
+def clear():
+    os.system('clear')
+
+def rm(filename):
+    os.system('rm {}'.format(filename))
 
 def isbooliter(pattern):
     """Identify if patter is list of bools
@@ -24,7 +30,6 @@ def isboolswitch(pattern):
 
 
 class Registry(object):
-    __registry = {}
     def __init__(self, *args):
         """Register a set of variables to restore at a later time in the session
 
@@ -51,17 +56,67 @@ class Registry(object):
                 ipout
                 iperr
         """
+        self.__registry = {}
+        self.__index = {}
+        self.__idx = 1
         for arg in args:
             self.add(arg)
 
     def add(self, pair):
         key, value = pair
         self.__registry[key] = self.__registry.get(key, value)
-        self.__dict__.update(self.__registry)
+        self.__index[self.__idx] = key
+        self.__index[key] = self.__idx
+        #self.__dict__.update(self.__registry)
+        self.__idx += 1
 
     def remove(self, key):
         self.__registry.pop(key)
         self.__dict__.pop(key)
+        __idx = self.__index.pop(key)
+        self.__index.pop(__idx)
+
+    def __getitem__(self, idx):
+        if isinstance(idx, int):
+            key = self.__index[idx]
+        else:
+            key = idx
+        return self.__registry[key]
+
+    def __repr__(self):
+        return 'Registered Variables:\n\t'+ '\n\t'.join(self.__registry.keys())
+
+
+class Namespace(object):
+    __registry = {}
+    __index = {}
+    __idx = 1
+    def __init__(self, *args):
+        """Borg version of Registery
+        """
+        for arg in args:
+            self.add(arg)
+
+    def add(self, pair):
+        key, value = pair
+        self.__registry[key] = self.__registry.get(key, value)
+        self.__index[self.__idx] = key
+        self.__index[key] = self.__idx
+        self.__dict__.update(self.__registry)
+        self.__idx += 1
+
+    def remove(self, key):
+        self.__registry.pop(key)
+        self.__dict__.pop(key)
+        __idx = self.__index.pop(key)
+        self.__index.pop(__idx)
+
+    def __getitem__(self, idx):
+        if isinstance(idx, int):
+            key = self.__index[idx]
+        else:
+            key = idx
+        return self.__registry[key]
 
     def __repr__(self):
         return 'Registered Variables:\n\t'+ '\n\t'.join(self.__registry.keys())
