@@ -1,4 +1,8 @@
 import os
+import inspect
+import logging
+from IPython.core.interactiveshell import InteractiveShell
+pub = InteractiveShell.instance().display_pub
 
 def in_ipython():
     """Identify environment as IPython or not
@@ -11,8 +15,35 @@ def in_ipython():
     except:
         return False
 
+def in_notebook():
+    """Identify IPython envinronment as notebook
+    """
+    if in_ipython():
+        ip = get_ipython()
+        ipynb = IPython.kernel.zmq.zmqshell.ZMQInteractiveShell
+        if isinstance(ip.instance(), ipynb):
+            return True
+        else:
+            return False
+    else:
+        return False
+
+def clear_output(wait=False):
+    stream = pub.pub_socket
+    parent = pub.parent_header
+    indent = pub.topic
+    content = dict(False=False)
+    msg = u'clear_output'
+    pub.session.send(stream, msg, content, parent, indent)
+
 def clear():
     os.system('clear')
+
+def clear_root_logger():
+    root = logging.getLogger()
+    
+    while len(root.handlers):
+        root.removeHandler(root.handlers[0])
 
 def rm(filename):
     os.system('rm {}'.format(filename))
@@ -30,7 +61,7 @@ def isboolswitch(pattern):
 
 
 class Registry(object):
-    def __init__(self, *args):
+    def __init__(self, args=None):
         """Register a set of variables to restore at a later time in the session
 
         Parameters
@@ -49,7 +80,7 @@ class Registry(object):
             Registered Variables:
                 test
                 ipout
-                iperr
+                    iperr
         >>> restore.remove('test')
         >>> restore
             Registered Variables:
@@ -59,8 +90,10 @@ class Registry(object):
         self.__registry = {}
         self.__index = {}
         self.__idx = 1
-        for arg in args:
-            self.add(arg)
+        if args and len(args) == 1:
+            self.add(args)
+        elif args and len(args) > 1:
+            self.add_from(args)
 
     def add(self, pair):
         key, value = pair
@@ -69,6 +102,10 @@ class Registry(object):
         self.__index[key] = self.__idx
         #self.__dict__.update(self.__registry)
         self.__idx += 1
+
+    def add_from(self, pairs):
+        for pair in pairs:
+            self.add(pair)
 
     def remove(self, key):
         self.__registry.pop(key)

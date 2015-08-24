@@ -3,7 +3,7 @@ import sys
 import logging
 import traceback
 from .misc import Registry
-
+from .standardstreams import StreamToTerminal
 
 class ExceptionToStreamOut(object):
     level = logging.ERROR
@@ -50,6 +50,7 @@ class ExceptionToTerminal(StreamToTerminal):
         for line in traceback.rstrip().splitlines():
             self.write(line.rstrip())
         self.flush()
+        
         
 class IExceptionToTerminal(ExceptionToTerminal):
     
