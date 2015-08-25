@@ -20,7 +20,6 @@ class Stream(logging.StreamHandler):
     def makeRecord(self, **kwargs):
         record = logging.makeLogRecord(kwargs)
         return record
-    
 
     
 class StreamToTerminal(Stream):
@@ -31,9 +30,6 @@ class StreamToTerminal(Stream):
         stream = self.streamers[file_desc]
         super(self.__class__, self).__init__(stream)
         self.level, self.levelname = self.levels[file_desc]
-        self.streamname = 'SteamToTerminal'
-
-        
 
 
 class StreamToNotebook(Stream):
@@ -43,8 +39,6 @@ class StreamToNotebook(Stream):
         stream = self.streamers[file_desc]
         self.level, self.levelname = self.levels[file_desc]
         super(self.__class__, self).__init__(stream)
-        self.streamname = 'StreamToNotebook'
-
 
 
 class PageStream(object):
@@ -111,5 +105,16 @@ class StreamToFile(Stream):
                 logging.StreamHandler.close(self)
         finally:
             self.release()      
-        
+       
+class StreamToNull(object):
+    def __init__(self):
+        pass
 
+    def write(self, message):
+        pass
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass

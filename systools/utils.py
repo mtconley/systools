@@ -1,8 +1,9 @@
-import sys
+import ast
+from datetime import datetime
+import errno
 import os
 import shutil
-import errno
-from datetime import datetime
+import sys
 
 class Directory(object):
     dir_paths = []
@@ -80,3 +81,140 @@ class Directory(object):
 
     def _isdir(self, _dir):
         return os.path.isdir(_dir)
+
+class Class(object):
+    pass
+
+class Function(object):
+    def __init__(self, data):
+        self.name = data.pop('name')
+        self.data = data
+        self.__dict__.update(data)
+    def __repr__(self):
+        string = "{}:\n".format(self.name)
+        for name, value in self.data.iteritems():
+            string += "  {0}:\n ".format(name)
+            if value is not None:
+                if hasattr(value, '__iter__'):
+                    value = [x for line in value for x in line.split()] 
+                    for line in value:
+                        string += "    {0}\n".format(line)
+                else:
+                    value = [x for x in value.split('\n') if x != '']
+                    if len(value) == 1:
+                        line = value[0]
+                        string += "    {0}\n".format(line)
+                    elif len(value) > 1:
+                        for line in value:
+                            string += "    {0}\n".format(line)
+                    else:
+                        string += "    None\n"
+            else:
+                string += "    None\n"
+        return string
+
+class File(object):
+    def __init__(self, root):
+        self.root = root
+        self.name = os.path.basename(root)
+
+class Folder(object):
+    def __init__(self, root):
+        if root.startswith('~'):
+            self.root = os.path.expanduser(root)
+        elif os.path.isabs(root):
+            self.root = root
+        else:
+            self.root = os.path.abspath(root)
+        self.get_contents()
+        self.add_subdirectories()
+        
+    def get_contents(self):
+        contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
+        self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
+        self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x)}
+        
+    def add_subdirectories(self):
+        for directory in self.dirs:
+            fullpath = os.path.join(self.root, directory)
+            self.dirs[directory] = Folder(fullpath)
+            self.__dict__[directory] = self.dirs[directory]
+        for f in self.files:
+            fullpath = os.path.join(self.root, f)
+            self.files[f] = File(fullpath)
+            if not f.startswith(('__init__', 'files')):
+                clean_f = f.strip('.').partition(os.sep)
+                self.__dict__[clean_f] = self.files[f]
+
+    def display(self, indent=0):
+        for folder in sorted(self.dirs.keys()):
+            print '\t' * indent + folder
+            self.__dict__[folder].display(indent+1)
+        for f in sorted(self.files.keys()):
+            print '\t' * indent, f
+            self.files[f].display(indent+1)
+
+
+
+class Module(Folder):
+    def __init__(self, root):
+        super(self.__class__, self).__init__(root)
+        
+    def get_contents(self):
+        contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
+        self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
+        self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x) and x.endswith('.py')}
+        
+    def add_subdirectories(self):
+        for directory in self.dirs:
+            fullpath = os.path.join(self.root, directory)
+            self.dirs[directory] = Module(fullpath)
+            self.__dict__[directory] = self.dirs[directory]
+        for f in self.files:
+            fullpath = os.path.join(self.root, f)
+            self.files[f] = PyFile(fullpath)
+            if not f.startswith(('__init__', 'files')):
+                clean_f = f.strip('.').partition(os.extsep)[0]
+                self.__dict__[clean_f] = self.files[f]
+
+    def display(self, indent=0):
+        for folder in sorted(self.dirs.keys()):
+            print '\t' * indent + folder
+            self.__dict__[folder].display(indent+1)
+        for f in sorted(self.files.keys()):
+            print '\t' * indent, f
+            self.files[f].display(indent+1)
+
+class PyFile(File):
+    def __init__(self, root):
+        self.root = root
+        self.name = os.path.basename(root)
+        self.__to_pyfile()
+        for name, function in self.functions.iteritems():
+            self.__dict__[name] = Function(function)
+    
+    def __to_pyfile(self):
+        filename = self.root
+        node = ast.parse(open(filename,'r').read())
+        filename = os.path.basename(filename)
+        result = {}
+        if hasattr(node, 'body'):
+            for func in node.body:
+                function = {'name': None, 'comment': None, 'args': None}
+                if hasattr(func, 'name'):
+                    function['name'] = func.name
+                if hasattr(func, 'arg') and hasattr(func.arg, 'arg'):
+                    function['args'] = [arg.id for arg in func.args.args]
+                if hasattr(func, 'body') and hasattr(func.body[0], 'value'):
+                    expr = func.body[0].value
+                    if hasattr(expr, 's'):
+                        function['comment'] = expr.s
+                result[function['name']] = function
+        if None in result:
+            result.pop(None)
+        self.functions = result
+
+def module_dive(module_name):
+    exec 'import {0} as module'.format(module_name)
+    root = os.path.dirname(module.__file__)
+    return Module(root)

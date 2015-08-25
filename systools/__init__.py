@@ -8,7 +8,7 @@ import standardstreams
 import utils
 
 import pyprind
-
+from math import floor
 def _print(self):
     
     progress = floor(self._calc_percent() / 100 * self.bar_width)
