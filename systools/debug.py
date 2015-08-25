@@ -23,9 +23,16 @@ def format_stack_entry(stack_entry, depth):
 def parse_stack(stack):
     result = {}
     for ix, entry in enumerate(stack):
-        result[ix] = parse_stack_entry(entry)
+        result[ix] = parse_stack_entry(entrya)
     return result
 
-def print_stack(stack):
+def print_last_call():
+    entry = get_stack()[-1]
+    print format_stack_entry(entry, 0)
+
+def print_stack(stack=None):
+    stack = stack if stack else get_stack()
+    nEntry = len(stack)
     for ix, entry in enumerate(stack):
+        ix = nEntry - ix
         print format_stack_entry(entry, ix)

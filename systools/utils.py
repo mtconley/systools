@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import ast
 from datetime import datetime
 import errno
@@ -118,6 +120,13 @@ class File(object):
         self.root = root
         self.name = os.path.basename(root)
 
+    def display(self, indent=0):
+        pass
+
+
+def limb(depth, is_end=True):
+    return '{0}  '.format('│') * (depth - 1) + ['├──', '└──'][is_end] * (depth > 0)
+
 class Folder(object):
     def __init__(self, root):
         if root.startswith('~'):
@@ -126,15 +135,16 @@ class Folder(object):
             self.root = root
         else:
             self.root = os.path.abspath(root)
-        self.get_contents()
-        self.add_subdirectories()
+        self.name = os.path.basename(root)
+        self.__get_contents()
+        self.__add_subdirectories()
         
-    def get_contents(self):
+    def __get_contents(self):
         contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
         self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
         self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x)}
         
-    def add_subdirectories(self):
+    def __add_subdirectories(self):
         for directory in self.dirs:
             fullpath = os.path.join(self.root, directory)
             self.dirs[directory] = Folder(fullpath)
@@ -146,13 +156,29 @@ class Folder(object):
                 clean_f = f.strip('.').partition(os.sep)
                 self.__dict__[clean_f] = self.files[f]
 
+    def display(self, indent=0, is_end=False):
+        print limb(indent, is_end) + self.name
+        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
+        nDir = len(dirs)
+        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
+        nFile = len(fs)
+        for ix, folder in enumerate(dirs):
+                self.__dict__[folder].display(indent+1, ((nDir + nFile) - 1) == ix)
+        for ix, f in enumerate(fs):
+            print limb(indent+1, (nFile - 1) == ix) + f
+            self.files[f].display(indent+1)
+
+    """
     def display(self, indent=0):
         for folder in sorted(self.dirs.keys()):
-            print '\t' * indent + folder
-            self.__dict__[folder].display(indent+1)
+            if not folder.startswith('.'):
+                print '\t' * indent + folder
+                self.__dict__[folder].display(indent+1)
         for f in sorted(self.files.keys()):
-            print '\t' * indent, f
-            self.files[f].display(indent+1)
+            if not f.startswith('.'):
+                print '\t' * indent + f
+                self.files[f].display(indent+1)
+    """
 
 
 
@@ -160,12 +186,12 @@ class Module(Folder):
     def __init__(self, root):
         super(self.__class__, self).__init__(root)
         
-    def get_contents(self):
+    def __get_contents(self):
         contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
         self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
         self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x) and x.endswith('.py')}
         
-    def add_subdirectories(self):
+    def __add_subdirectories(self):
         for directory in self.dirs:
             fullpath = os.path.join(self.root, directory)
             self.dirs[directory] = Module(fullpath)
