@@ -27,7 +27,7 @@ class Directory(object):
         self.dir_paths = [x[0] for x in os.walk(self.fullpath)]
 
     def set_fullpath(self):
-        self.fullpath = self.join(self.root, self.name)
+        self.fullpath = self._join(self.root, self.name)
 
     def add_date(self):
         datestr = datetime.now().strftime('%Y%m%d')
@@ -38,7 +38,7 @@ class Directory(object):
             self._mktree(self.name, dir_dict)
 
     def write(self, data, location):
-        location = self.join(self.fullpath, location)
+        location = self._join(self.fullpath, location)
         path = os.sep.join(location.split(os.sep)[:-1])
         if path in self.dir_paths:
             with open(location, 'w') as f:
@@ -157,7 +157,7 @@ class Folder(object):
                 self.__dict__[clean_f] = self.files[f]
 
     def display(self, indent=0, is_end=False):
-        print limb(indent, is_end) + self.name
+        print limb(indent, is_end) + [self.name, self.root][indent==0]
         dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
         nDir = len(dirs)
         fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
@@ -168,23 +168,18 @@ class Folder(object):
             print limb(indent+1, (nFile - 1) == ix) + f
             self.files[f].display(indent+1)
 
-    """
-    def display(self, indent=0):
-        for folder in sorted(self.dirs.keys()):
-            if not folder.startswith('.'):
-                print '\t' * indent + folder
-                self.__dict__[folder].display(indent+1)
-        for f in sorted(self.files.keys()):
-            if not f.startswith('.'):
-                print '\t' * indent + f
-                self.files[f].display(indent+1)
-    """
-
-
 
 class Module(Folder):
     def __init__(self, root):
-        super(self.__class__, self).__init__(root)
+        if root.startswith('~'):
+            self.root = os.path.expanduser(root)
+        elif os.path.isabs(root):
+            self.root = root
+        else:
+            self.root = os.path.abspath(root)
+        self.name = os.path.basename(root)
+        self.__get_contents()
+        self.__add_subdirectories()
         
     def __get_contents(self):
         contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
