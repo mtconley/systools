@@ -6,6 +6,7 @@ import errno
 import os
 import shutil
 import sys
+import re
 
 class Directory(object):
     dir_paths = []
@@ -92,6 +93,10 @@ class Function(object):
         self.name = data.pop('name')
         self.data = data
         self.__dict__.update(data)
+
+    def display(self, indent, is_end=False):
+        print limb(indent, is_end) + self.name + '()'
+
     def __repr__(self):
         string = "{}:\n".format(self.name)
         for name, value in self.data.iteritems():
@@ -123,9 +128,15 @@ class File(object):
     def display(self, indent=0):
         pass
 
+    def find(self, pattern, indent=0):
+        pass
+
 
 def limb(depth, is_end=True):
     return '{0}  '.format('│') * (depth - 1) + ['├──', '└──'][is_end] * (depth > 0)
+
+def space(depth, is_end=True):
+    return '{0}  '.format('   ') * (depth - 1) + ['   ', '   '][is_end] * (depth > 0)
 
 class Folder(object):
     def __init__(self, root):
@@ -156,6 +167,7 @@ class Folder(object):
                 clean_f = f.strip('.').partition(os.sep)
                 self.__dict__[clean_f] = self.files[f]
 
+
     def display(self, indent=0, is_end=False):
         print limb(indent, is_end) + [self.name, self.root][indent==0]
         dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
@@ -180,6 +192,7 @@ class Module(Folder):
         self.name = os.path.basename(root)
         self.__get_contents()
         self.__add_subdirectories()
+        self.__parser = limb
         
     def __get_contents(self):
         contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
@@ -191,6 +204,7 @@ class Module(Folder):
             fullpath = os.path.join(self.root, directory)
             self.dirs[directory] = Module(fullpath)
             self.__dict__[directory] = self.dirs[directory]
+
         for f in self.files:
             fullpath = os.path.join(self.root, f)
             self.files[f] = PyFile(fullpath)
@@ -198,13 +212,55 @@ class Module(Folder):
                 clean_f = f.strip('.').partition(os.extsep)[0]
                 self.__dict__[clean_f] = self.files[f]
 
-    def display(self, indent=0):
-        for folder in sorted(self.dirs.keys()):
-            print '\t' * indent + folder
-            self.__dict__[folder].display(indent+1)
-        for f in sorted(self.files.keys()):
-            print '\t' * indent, f
-            self.files[f].display(indent+1)
+    def find(self, pattern, indent=0, is_end=False, response=[]):
+        response = [] if len(response) == 0 else response # clear memory
+
+        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
+        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
+
+        nDir = len(dirs)
+        nFile = len(fs)
+
+        for ix, folder in enumerate(dirs):
+            print '\t'.join(map(str,[folder, pattern, self.name, len(re.findall(pattern, folder)) > 0]))
+            found = len(re.findall(pattern, folder)) > 0
+            if found:
+                response.append([indent, folder])
+            response = self.__dict__[folder].find(pattern, indent+1, ((nDir + nFile) - 1) == ix, response=response)
+
+        for ix, f in enumerate(fs):
+            found = len(re.findall(pattern, f)) > 0
+            if found:
+                response.append([indent, f])
+
+            # for funcname in self.__dict__[f].functions:
+            #     if len(re.findall(pattern, funcname)) > 0:
+            #         response.append([indent + 1, funcname])
+            
+
+        return response
+
+
+    def display(self, indent=0, is_end=False, show_files=True, show_funcs=True, max_depth=None):
+        
+        print self.__parser(indent, is_end) + self.name
+  
+        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
+        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
+
+        nDir = len(dirs)
+        nFile = len(fs) * show_files
+
+        show_funcs = show_files and show_funcs
+
+        if max_depth == None or max_depth >= indent + 1:
+            for ix, folder in enumerate(dirs):
+                    self.__dict__[folder].display(indent+1, ((nDir + nFile) - 1) == ix, 
+                        show_files=show_files, show_funcs=show_funcs, max_depth=max_depth)
+        if show_files:
+            for ix, f in enumerate(fs):
+                print self.__parser(indent+1, (nFile - 1) == ix) + f
+                self.files[f].display(indent+1, show_funcs=show_funcs)
 
 class PyFile(File):
     def __init__(self, root):
@@ -213,6 +269,13 @@ class PyFile(File):
         self.__to_pyfile()
         for name, function in self.functions.iteritems():
             self.__dict__[name] = Function(function)
+
+    def display(self, indent, is_end=False, show_funcs=True):
+        funcs = sorted(self.functions.keys())
+        nFunc = len(funcs)
+        if show_funcs:
+            for ix, func in enumerate(funcs):
+                self.__dict__[func].display(indent+1, (nFunc - 1) == ix)
     
     def __to_pyfile(self):
         filename = self.root
@@ -234,6 +297,80 @@ class PyFile(File):
         if None in result:
             result.pop(None)
         self.functions = result
+
+class Node(object):
+    def __init__(self, name, prioritytype=type):
+        self.name = name
+        self.children = []
+        self.count = 0
+        self.prioritytype = prioritytype
+        
+    def add(self, node):
+        self.children.append(node)
+        self.count += 1
+        
+    def pop(self, index=0):
+        self.count -= 1
+        return self.children.pop(index)
+    
+    def display(self, indent=0, row=[0]):
+        row = row if row != [0] else [0]
+        
+        if indent == 0:
+            print self.name
+            
+        nchildren = len(self.children)
+        
+        keys = sorted(self.children, key=lambda x: x.name)
+        keys = sorted(keys, key=lambda x: not isinstance(x, self.prioritytype))
+        
+        for ix, node in enumerate(keys):
+            row.append(1)
+
+            is_end = nchildren - ix == 1
+            if is_end:
+                row[indent+1] = 0
+                
+            print self._pprinter(row) + str(node.name)
+            node.display(indent+1, row)
+            row.pop()
+    
+    def find(self, pattern):
+        self.response = self._search(pattern)
+        if self.response:
+            self.response.display()
+        else:
+            print 'Pattern, {}, not found'.format(pattern)
+                
+            
+    def _search(self, pattern, match=False):
+        match = self._match(pattern) or match
+        source = Node(self.name)
+        
+        for child in self.children:
+            result = child._search(pattern, match)
+            if result != None or match: source.add(result)
+        else:
+            if match: return source
+            
+        if len(source) > 0 or match:
+            return source
+    
+    def _match(self, pattern):
+        return len(re.findall(pattern, repr(self.name))) > 0
+    
+    def _pprinter(self, row):
+        symbols = [['   ', '│  '], ['└──', '├──']]   
+        nrow = len(row)
+        prompt = ''
+        for ix, element in enumerate(row[1:], 1):
+            last = nrow - ix == 1
+            prompt += symbols[last][element]
+
+        return prompt
+    
+    def __len__(self):
+        return self.count
 
 def module_dive(module_name):
     exec 'import {0} as module'.format(module_name)
