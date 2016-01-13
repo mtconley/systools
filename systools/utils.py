@@ -87,7 +87,7 @@ class Directory(object):
 
 
     
-    # def __to_pyfile(self):
+    # def _to_pyfile(self):
     #     filename = self.root
     #     node = ast.parse(open(filename,'r').read())
     #     filename = os.path.basename(filename)
@@ -137,7 +137,7 @@ class Node(object):
         for ix, node in enumerate(keys):
             row.append(1)
             if nchildren - ix == 1: row[indent] = 0
-            print self._pprinter(row) + str(node.name)
+            print self._pprinter(row), str(node.name)
             node.display(indent+1, row)
             row.pop()
     
@@ -166,7 +166,7 @@ class Node(object):
         return len(re.findall(pattern, repr(self.name))) > 0
     
     def _pprinter(self, row):
-        symbols = [['   ', '│  '], ['└──', '├──']]   
+        symbols = [['    ', '│   '], ['└──', '├──']]   
         nrow = len(row)
         prompt = ''
         for ix, element in enumerate(row):
@@ -225,7 +225,7 @@ class Module(Folder):
         for item in os.listdir(self.root):
             path = os.path.join(self.root, item)
             if os.path.isdir(path):
-                child = Folder(path)
+                child = Module(path)
                 self.add(child)
             elif os.path.isfile(path) and path.endswith('.py'):
                 child = PyFile(path)
