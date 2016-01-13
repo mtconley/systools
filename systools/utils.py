@@ -85,218 +85,28 @@ class Directory(object):
     def _isdir(self, _dir):
         return os.path.isdir(_dir)
 
-class Class(object):
-    pass
 
-class Function(object):
-    def __init__(self, data):
-        self.name = data.pop('name')
-        self.data = data
-        self.__dict__.update(data)
-
-    def display(self, indent, is_end=False):
-        print limb(indent, is_end) + self.name + '()'
-
-    def __repr__(self):
-        string = "{}:\n".format(self.name)
-        for name, value in self.data.iteritems():
-            string += "  {0}:\n ".format(name)
-            if value is not None:
-                if hasattr(value, '__iter__'):
-                    value = [x for line in value for x in line.split()] 
-                    for line in value:
-                        string += "    {0}\n".format(line)
-                else:
-                    value = [x for x in value.split('\n') if x != '']
-                    if len(value) == 1:
-                        line = value[0]
-                        string += "    {0}\n".format(line)
-                    elif len(value) > 1:
-                        for line in value:
-                            string += "    {0}\n".format(line)
-                    else:
-                        string += "    None\n"
-            else:
-                string += "    None\n"
-        return string
-
-class File(object):
-    def __init__(self, root):
-        self.root = root
-        self.name = os.path.basename(root)
-
-    def display(self, indent=0):
-        pass
-
-    def find(self, pattern, indent=0):
-        pass
-
-
-def limb(depth, is_end=True):
-    return '{0}  '.format('│') * (depth - 1) + ['├──', '└──'][is_end] * (depth > 0)
-
-def space(depth, is_end=True):
-    return '{0}  '.format('   ') * (depth - 1) + ['   ', '   '][is_end] * (depth > 0)
-
-class Folder(object):
-    def __init__(self, root):
-        if root.startswith('~'):
-            self.root = os.path.expanduser(root)
-        elif os.path.isabs(root):
-            self.root = root
-        else:
-            self.root = os.path.abspath(root)
-        self.name = os.path.basename(root)
-        self.__get_contents()
-        self.__add_subdirectories()
-        
-    def __get_contents(self):
-        contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
-        self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
-        self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x)}
-        
-    def __add_subdirectories(self):
-        for directory in self.dirs:
-            fullpath = os.path.join(self.root, directory)
-            self.dirs[directory] = Folder(fullpath)
-            self.__dict__[directory] = self.dirs[directory]
-        for f in self.files:
-            fullpath = os.path.join(self.root, f)
-            self.files[f] = File(fullpath)
-            if not f.startswith(('__init__', 'files')):
-                clean_f = f.strip('.').partition(os.sep)
-                self.__dict__[clean_f] = self.files[f]
-
-
-    def display(self, indent=0, is_end=False):
-        print limb(indent, is_end) + [self.name, self.root][indent==0]
-        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
-        nDir = len(dirs)
-        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
-        nFile = len(fs)
-        for ix, folder in enumerate(dirs):
-                self.__dict__[folder].display(indent+1, ((nDir + nFile) - 1) == ix)
-        for ix, f in enumerate(fs):
-            print limb(indent+1, (nFile - 1) == ix) + f
-            self.files[f].display(indent+1)
-
-
-class Module(Folder):
-    def __init__(self, root):
-        if root.startswith('~'):
-            self.root = os.path.expanduser(root)
-        elif os.path.isabs(root):
-            self.root = root
-        else:
-            self.root = os.path.abspath(root)
-        self.name = os.path.basename(root)
-        self.__get_contents()
-        self.__add_subdirectories()
-        self.__parser = limb
-        
-    def __get_contents(self):
-        contents = [os.path.join(self.root, x) for x in os.listdir(self.root)]
-        self.dirs = {os.path.basename(x): None for x in contents if os.path.isdir(x)}
-        self.files = {os.path.basename(x): None for x in contents if os.path.isfile(x) and x.endswith('.py')}
-        
-    def __add_subdirectories(self):
-        for directory in self.dirs:
-            fullpath = os.path.join(self.root, directory)
-            self.dirs[directory] = Module(fullpath)
-            self.__dict__[directory] = self.dirs[directory]
-
-        for f in self.files:
-            fullpath = os.path.join(self.root, f)
-            self.files[f] = PyFile(fullpath)
-            if not f.startswith(('__init__', 'files')):
-                clean_f = f.strip('.').partition(os.extsep)[0]
-                self.__dict__[clean_f] = self.files[f]
-
-    def find(self, pattern, indent=0, is_end=False, response=[]):
-        response = [] if len(response) == 0 else response # clear memory
-
-        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
-        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
-
-        nDir = len(dirs)
-        nFile = len(fs)
-
-        for ix, folder in enumerate(dirs):
-            print '\t'.join(map(str,[folder, pattern, self.name, len(re.findall(pattern, folder)) > 0]))
-            found = len(re.findall(pattern, folder)) > 0
-            if found:
-                response.append([indent, folder])
-            response = self.__dict__[folder].find(pattern, indent+1, ((nDir + nFile) - 1) == ix, response=response)
-
-        for ix, f in enumerate(fs):
-            found = len(re.findall(pattern, f)) > 0
-            if found:
-                response.append([indent, f])
-
-            # for funcname in self.__dict__[f].functions:
-            #     if len(re.findall(pattern, funcname)) > 0:
-            #         response.append([indent + 1, funcname])
-            
-
-        return response
-
-
-    def display(self, indent=0, is_end=False, show_files=True, show_funcs=True, max_depth=None):
-        
-        print self.__parser(indent, is_end) + self.name
-  
-        dirs = sorted(x for x in self.dirs.keys() if not x.startswith('.'))
-        fs = sorted(x for x in self.files.keys() if not x.startswith('.'))
-
-        nDir = len(dirs)
-        nFile = len(fs) * show_files
-
-        show_funcs = show_files and show_funcs
-
-        if max_depth == None or max_depth >= indent + 1:
-            for ix, folder in enumerate(dirs):
-                    self.__dict__[folder].display(indent+1, ((nDir + nFile) - 1) == ix, 
-                        show_files=show_files, show_funcs=show_funcs, max_depth=max_depth)
-        if show_files:
-            for ix, f in enumerate(fs):
-                print self.__parser(indent+1, (nFile - 1) == ix) + f
-                self.files[f].display(indent+1, show_funcs=show_funcs)
-
-class PyFile(File):
-    def __init__(self, root):
-        self.root = root
-        self.name = os.path.basename(root)
-        self.__to_pyfile()
-        for name, function in self.functions.iteritems():
-            self.__dict__[name] = Function(function)
-
-    def display(self, indent, is_end=False, show_funcs=True):
-        funcs = sorted(self.functions.keys())
-        nFunc = len(funcs)
-        if show_funcs:
-            for ix, func in enumerate(funcs):
-                self.__dict__[func].display(indent+1, (nFunc - 1) == ix)
     
-    def __to_pyfile(self):
-        filename = self.root
-        node = ast.parse(open(filename,'r').read())
-        filename = os.path.basename(filename)
-        result = {}
-        if hasattr(node, 'body'):
-            for func in node.body:
-                function = {'name': None, 'comment': None, 'args': None}
-                if hasattr(func, 'name'):
-                    function['name'] = func.name
-                if hasattr(func, 'arg') and hasattr(func.arg, 'arg'):
-                    function['args'] = [arg.id for arg in func.args.args]
-                if hasattr(func, 'body') and hasattr(func.body[0], 'value'):
-                    expr = func.body[0].value
-                    if hasattr(expr, 's'):
-                        function['comment'] = expr.s
-                result[function['name']] = function
-        if None in result:
-            result.pop(None)
-        self.functions = result
+    # def __to_pyfile(self):
+    #     filename = self.root
+    #     node = ast.parse(open(filename,'r').read())
+    #     filename = os.path.basename(filename)
+    #     result = {}
+    #     if hasattr(node, 'body'):
+    #         for func in node.body:
+    #             function = {'name': None, 'comment': None, 'args': None}
+    #             if hasattr(func, 'name'):
+    #                 function['name'] = func.name
+    #             if hasattr(func, 'arg') and hasattr(func.arg, 'arg'):
+    #                 function['args'] = [arg.id for arg in func.args.args]
+    #             if hasattr(func, 'body') and hasattr(func.body[0], 'value'):
+    #                 expr = func.body[0].value
+    #                 if hasattr(expr, 's'):
+    #                     function['comment'] = expr.s
+    #             result[function['name']] = function
+    #     if None in result:
+    #         result.pop(None)
+    #     self.functions = result
 
 class Node(object):
     def __init__(self, name, prioritytype=type):
@@ -313,8 +123,8 @@ class Node(object):
         self.count -= 1
         return self.children.pop(index)
     
-    def display(self, indent=0, row=[0]):
-        row = row if row != [0] else [0]
+    def display(self, indent=0, row=[]):
+        row = row if row else []
         
         if indent == 0:
             print self.name
@@ -326,11 +136,7 @@ class Node(object):
         
         for ix, node in enumerate(keys):
             row.append(1)
-
-            is_end = nchildren - ix == 1
-            if is_end:
-                row[indent+1] = 0
-                
+            if nchildren - ix == 1: row[indent] = 0
             print self._pprinter(row) + str(node.name)
             node.display(indent+1, row)
             row.pop()
@@ -363,7 +169,7 @@ class Node(object):
         symbols = [['   ', '│  '], ['└──', '├──']]   
         nrow = len(row)
         prompt = ''
-        for ix, element in enumerate(row[1:], 1):
+        for ix, element in enumerate(row):
             last = nrow - ix == 1
             prompt += symbols[last][element]
 
@@ -371,6 +177,84 @@ class Node(object):
     
     def __len__(self):
         return self.count
+
+
+
+
+class FileSystemObect(Node):
+    def __init__(self, root, prioritytype=type):
+        if root.startswith('~'):
+            self.root = os.path.expanduser(root)
+        elif os.path.isabs(root):
+            self.root = root
+        else:
+            self.root = os.path.abspath(root)
+        self.name = os.path.basename(root)
+        super(FileSystemObect, self).__init__(self.name, prioritytype)
+        self._add_children()
+        
+    def _add_children(self):
+        pass
+
+
+
+class Folder(FileSystemObect):
+    def __init__(self, root):
+        super(Folder, self).__init__(root, Folder)
+        
+    def _add_children(self):
+        for item in os.listdir(self.root):
+            path = os.path.join(self.root, item)
+            if os.path.isdir(path):
+                child = Folder(path)
+                self.add(child)
+            elif os.path.isfile(path):
+                child = File(path)
+                self.add(child)
+
+
+
+class File(FileSystemObect):
+    def __init__(self, root):
+        super(File, self).__init__(root, Folder)
+
+
+
+class Module(Folder):
+    def _add_children(self):
+        for item in os.listdir(self.root):
+            path = os.path.join(self.root, item)
+            if os.path.isdir(path):
+                child = Folder(path)
+                self.add(child)
+            elif os.path.isfile(path) and path.endswith('.py'):
+                child = PyFile(path)
+                self.add(child)
+
+
+
+class PyFile(File):
+    def _add_children(self):
+        ast_node = ast.parse(open(self.root,'r').read())
+        functions = filter(lambda x: isinstance(x, ast.FunctionDef), ast_node.body)
+        for func in functions:
+            child = FunctionDef(func.name+'()')
+            self.add(child)
+        classes = filter(lambda x: isinstance(x, ast.ClassDef), ast_node.body)
+        for cls in classes:
+            child = FunctionDef(cls.name)
+            self.add(child)
+
+
+
+class ClassDef(Node):
+    pass
+
+
+
+class FunctionDef(Node):
+    pass
+
 
 def module_dive(module_name):
     exec 'import {0} as module'.format(module_name)
