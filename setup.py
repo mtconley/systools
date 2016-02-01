@@ -12,7 +12,7 @@ config = {
     'download_url': 'https://github.com/mtconley/systools.git.',
     'author_email': '',
     'version': '0.0.1',
-    'install_requires': [ ],
+    'install_requires': ['pyprind'],
     'packages': find_packages(),
     'name': 'systools'
 }
